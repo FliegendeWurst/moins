@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, cmp};
 use std::collections::HashMap;
 use std::io::Write;
 use std::io::{stdin, stdout, Stdout};
@@ -48,8 +48,10 @@ impl<'a> Moins<'a> {
                     write!(pager.screen.borrow_mut(), "{}", termion::cursor::Show).unwrap();
                     break;
                 }
-                Key::Down | Key::Char('j') => pager.scroll_down(),
-                Key::Up | Key::Char('k') => pager.scroll_up(),
+                Key::Down | Key::Char('j') => pager.scroll_down(1),
+                Key::PageDown => pager.scroll_down(pager.height as usize - 1),
+                Key::Up | Key::Char('k') => pager.scroll_up(1),
+                Key::PageUp => pager.scroll_up(pager.height as usize - 1),
                 _ => (),
             }
         }
@@ -82,7 +84,7 @@ impl<'a> Moins<'a> {
             scroll,
             screen,
             current_line: 0,
-            height: size.1 - 2,
+            height: size.1,
             width: size.0,
             options,
         }
@@ -161,27 +163,14 @@ impl<'a> Moins<'a> {
                 .unwrap();
             });
 
-        let acc = (0..self.width).map(|_| "_").collect::<String>();
-
         write!(
             self.screen.borrow_mut(),
             "{}{}{}{}{}",
             termion::cursor::Goto(1, self.height),
             termion::clear::CurrentLine,
-            termion::style::Underline,
-            termion::cursor::Hide,
-            acc,
-        )
-        .unwrap();
-
-        write!(
-            self.screen.borrow_mut(),
-            "{}{}{}{}{}",
-            termion::cursor::Goto(1, self.height + 2),
-            termion::clear::CurrentLine,
             termion::style::Reset,
             termion::cursor::Hide,
-            "Ctrl+j, k, arrow_up ,arrow_down to move, q to quit",
+            "Ctrl+j, k, arrow_up/arrow_down,PgUp/PgDown to move, q to quit",
         )
         .unwrap();
 
@@ -190,11 +179,11 @@ impl<'a> Moins<'a> {
         self.flush();
     }
 
-    fn scroll_down(&mut self) {
+    fn scroll_down(&mut self, amount: usize) {
         self.scroll = if self.scroll == self.height as usize {
             self.height as usize
         } else {
-            self.scroll + 1
+            self.scroll + amount
         };
 
         let height = self.height as usize;
@@ -202,9 +191,9 @@ impl<'a> Moins<'a> {
         self.current_line = if self.lines.len() < height {
             0
         } else if self.current_line == self.lines.len() - height {
-            self.lines.len() - height
+            self.lines.len() - height + 1
         } else {
-            self.current_line + 1
+            cmp::min(self.lines.len() - height + 1, self.current_line + amount)
         };
 
         print!("{}", termion::scroll::Up(self.scroll_as_u16()));
@@ -212,13 +201,13 @@ impl<'a> Moins<'a> {
         self.write();
     }
 
-    fn scroll_up(&mut self) {
-        self.scroll = if self.scroll == 1 { 1 } else { self.scroll - 1 };
+    fn scroll_up(&mut self, amount: usize) {
+        self.scroll = if self.scroll <= amount { 1 } else { self.scroll - amount };
 
-        self.current_line = if self.current_line == 0 {
+        self.current_line = if self.current_line < amount {
             0
         } else {
-            self.current_line - 1
+            self.current_line - amount
         };
 
         print!("{}", termion::scroll::Up(self.scroll_as_u16()));
