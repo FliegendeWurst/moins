@@ -29,7 +29,7 @@ pub struct PagerOptions<'a> {
 
 impl<'a> Moins<'a> {
     /// run moins pager
-    pub fn run(content: &'a mut String, options: Option<PagerOptions>) {
+    pub fn run(content: &'a str, options: Option<PagerOptions>) {
         let stdout = stdout().into_raw_mode().unwrap();
         let screen = MouseTerminal::from(AlternateScreen::from(stdout));
         let screen = RefCell::new(screen);
@@ -57,7 +57,7 @@ impl<'a> Moins<'a> {
         }
     }
 
-    fn new(content: &'a mut String, screen: Terminal, options: Option<PagerOptions<'a>>) -> Self {
+    fn new(content: &'a str, screen: Terminal, options: Option<PagerOptions<'a>>) -> Self {
         let size = termion::terminal_size().unwrap();
         let width = size.0 as usize;
         let mut lines = vec![];
